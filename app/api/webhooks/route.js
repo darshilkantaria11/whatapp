@@ -20,21 +20,21 @@ export async function GET(req) {
     challenge
   });
 
-  // Validate verification token
-  if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
-    console.log('[GET] Verification SUCCESS');
-    return new NextResponse(challenge, {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store' }
-    });
-  }
-
-  console.error('[GET] Verification FAILED', {
-    expectedToken: process.env.VERIFY_TOKEN || 'NOT_SET',
-    receivedToken: token || 'missing'
+  return new NextResponse(challenge, {
+    status: 200,
+    headers: { 'Cache-Control': 'no-store' }
   });
+  // Validate verification token
+  // if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+  //   console.log('[GET] Verification SUCCESS');
+  // }
+
+  // console.error('[GET] Verification FAILED', {
+  //   expectedToken: process.env.VERIFY_TOKEN || 'NOT_SET',
+  //   receivedToken: token || 'missing'
+  // });
   
-  return new NextResponse('Verification failed', { status: 403 });
+  // return new NextResponse('Verification failed', { status: 403 });
 }
 
 export async function POST(req) {
