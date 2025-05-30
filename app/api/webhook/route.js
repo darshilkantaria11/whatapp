@@ -4,12 +4,15 @@ export async function GET(req) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
+  console.log('Incoming token:', token, 'Expected token:', process.env.VERIFY_TOKEN);
+
   if (mode && token === process.env.VERIFY_TOKEN) {
     return new Response(challenge, { status: 200 });
   } else {
     return new Response('Forbidden', { status: 403 });
   }
 }
+
 
 export async function POST(req) {
   const body = await req.json();
