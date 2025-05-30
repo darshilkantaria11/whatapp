@@ -55,8 +55,9 @@ export async function POST(req) {
 
     // Parse JSON only after verification
     const body = JSON.parse(rawBody);
-    const response = body.entry[0].changes;
-    console.log('[POST] Valid payload received:', body, response);
+    const response = body.entry[0].changes[0].value.messages;
+    
+    console.log('[POST] Valid payload received:', response);
 
     // Process webhook events here
     return NextResponse.json({ status: 'success' });
