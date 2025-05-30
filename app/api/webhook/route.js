@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import { NextResponse } from 'next/server';
+import crypto from "crypto";
+import { NextResponse } from "next/server";
 
 export const config = {
   api: {
@@ -13,6 +13,9 @@ export async function GET(req) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
+  console.log("GET webhook verification request:");
+  console.log({ mode, token, challenge });
+
   if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
     return new NextResponse(challenge, { status: 200 });
   } else {
@@ -24,11 +27,18 @@ export async function POST(req) {
   const signature = req.headers.get("x-hub-signature-256");
   const rawBody = await req.text();
 
+  console.log("Raw POST body from Facebook:");
+  console.log(rawBody);
+
   if (!verifySignature(rawBody, signature)) {
     return new NextResponse("Invalid signature", { status: 403 });
   }
 
   const payload = JSON.parse(rawBody);
+
+  // Log the full parsed payload
+  console.log("Parsed POST payload from Facebook:");
+  console.log(payload);
 
   if (payload.object === "instagram") {
     payload.entry.forEach((entry) => {
