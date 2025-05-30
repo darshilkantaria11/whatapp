@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
-  const { searchParams } = req.nextUrl;
+  // Fix: Base URL needed on Vercel to access query params
+  const { searchParams } = new URL(req.url, process.env.NEXT_PUBLIC_BASE_URL);
 
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
@@ -34,7 +35,7 @@ export async function POST(req) {
   console.log("Parsed POST payload from Facebook:");
   console.log(payload);
 
-  if (payload.object === "instagram" || payload.object === "whatsapp_business_account") {
+  if (payload.object === "whatsapp_business_account" || payload.object === "instagram") {
     payload.entry.forEach((entry) => {
       entry.changes.forEach((change) => {
         console.log("🔄 Change received:");
