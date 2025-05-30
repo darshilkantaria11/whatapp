@@ -7,8 +7,6 @@ export async function GET(req) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  console.log("Webhook verification GET params:", { mode, token, challenge });
-
   if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
     return new NextResponse(challenge, { status: 200 });
   }
@@ -26,7 +24,8 @@ export async function POST(req) {
 
   try {
     const body = JSON.parse(rawBody);
-    console.log("Webhook POST body:", JSON.stringify(body, null, 2));
+    console.log('Webhook POST body:', JSON.stringify(body, null, 2));
+    // Handle the incoming message here
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error parsing webhook POST:', error);
