@@ -9,21 +9,31 @@ export const config = {
   },
 };
 
+// Webhook verification (for WhatsApp setup)
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get('hub.mode');
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  return new NextResponse(challenge, {
-    status: 200,
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    return new NextResponse(challenge, { status: 200 });
+  }
+
+  return new NextResponse('Forbidden', { status: 403 });
 }
 
+// Handles incoming messages
 export async function POST(req) {
   await connectToDB();
-  const body = await req.json();
+
+  let body;
+  try {
+    body = await req.json(); // Raw body parsing not used unless you verify signature
+  } catch (err) {
+    console.error('Error parsing JSON:', err);
+    return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 });
+  }
 
   const token = process.env.WHATSAPP_TOKEN;
 
@@ -34,7 +44,7 @@ export async function POST(req) {
     const phone = message?.from;
 
     if (!message || !phone) {
-      return Response.json({ success: false });
+      return NextResponse.json({ success: false, error: 'Missing message or phone' }, { status: 400 });
     }
 
     const type = message.type;
@@ -49,39 +59,34 @@ export async function POST(req) {
       });
     }
 
-    // ✅ Handle media types: image, audio, sticker
+    // ✅ Handle image/audio/sticker messages
     if (['image', 'audio', 'sticker'].includes(type)) {
       const mediaId = message[type]?.id;
+      if (!mediaId) throw new Error('Media ID missing');
 
-      // Step 1: Fetch temporary URL using media ID
-      const mediaUrl = await fetchMediaUrl(mediaId);
-      if (!mediaUrl) throw new Error('Failed to fetch media URL');
+      const mediaUrl = await fetchMediaUrl(mediaId, token);
+      if (!mediaUrl) throw new Error('Failed to retrieve media URL');
 
-      // Step 2: Save message with temp URL
       await Message.create({
         phone,
-        content: mediaUrl, // You will proxy this from frontend via /api/media
+        content: mediaUrl, // You should use a proxy API route to serve this
         type,
         direction: 'incoming',
       });
     }
 
-    return Response.json({ success: true });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-// ✅ Helper: fetch temp signed media URL from WhatsApp
-async function fetchMediaUrl(mediaId) {
-  const token = process.env.WHATSAPP_TOKEN;
-
+// Helper to fetch signed media URL from WhatsApp
+async function fetchMediaUrl(mediaId, token) {
   try {
     const res = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     const json = await res.json();
