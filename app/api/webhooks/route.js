@@ -1,10 +1,8 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
-import { addMessage } from '../../lib/messagesStore';
 import { connectToDB } from '../../lib/db';
 import Message from '../../model/Message';
 
-// Add this to prevent Next.js from parsing the body
 export const config = {
   api: {
     bodyParser: false,
@@ -17,12 +15,10 @@ export async function GET(req) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-
   return new NextResponse(challenge, {
     status: 200,
-    headers: { 'Cache-Control': 'no-store' }
+    headers: { 'Cache-Control': 'no-store' },
   });
-
 }
 
 export async function POST(req) {
@@ -43,6 +39,7 @@ export async function POST(req) {
 
     const type = message.type;
 
+    // ✅ Handle text messages
     if (type === 'text') {
       await Message.create({
         phone,
@@ -52,30 +49,21 @@ export async function POST(req) {
       });
     }
 
-    // 👇 Handle media types
+    // ✅ Handle media types: image, audio, sticker
     if (['image', 'audio', 'sticker'].includes(type)) {
       const mediaId = message[type]?.id;
 
-      // Step 1: Get the media URL
-      const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Step 1: Fetch temporary URL using media ID
+      const mediaUrl = await fetchMediaUrl(mediaId);
+      if (!mediaUrl) throw new Error('Failed to fetch media URL');
 
-      const mediaData = await mediaRes.json();
-      const mediaUrl = mediaData.url;
-
-      // Step 2: Save the signed URL to DB
+      // Step 2: Save message with temp URL
       await Message.create({
         phone,
-        content: mediaUrl,
+        content: mediaUrl, // You will proxy this from frontend via /api/media
         type,
         direction: 'incoming',
       });
-
-      // (Optional) You can also fetch the actual binary and store it in cloud or base64 if needed
     }
 
     return Response.json({ success: true });
@@ -85,43 +73,21 @@ export async function POST(req) {
   }
 }
 
-// --- Helper functions below ---
-
-async function readRawBody(req) {
-  const chunks = [];
-  for await (const chunk of req.body) {
-    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-  }
-  return Buffer.concat(chunks).toString('utf-8');
-}
-
-function verifySignature(rawBody, headerSignature) {
-  if (!headerSignature) return false;
-
-  const appSecret = process.env.FB_APP_SECRET;
-  const expectedSignature = crypto
-    .createHmac('sha256', appSecret)
-    .update(rawBody)
-    .digest('hex');
-
-  const expected = `sha256=${expectedSignature}`;
-  return crypto.timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(headerSignature)
-  );
-}
-
+// ✅ Helper: fetch temp signed media URL from WhatsApp
 async function fetchMediaUrl(mediaId) {
   const token = process.env.WHATSAPP_TOKEN;
+
   try {
-    // Step 1: Get temporary media URL
     const res = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
+
     const json = await res.json();
     return json.url || null;
-  } catch (e) {
-    console.error('Failed to fetch media URL', e);
+  } catch (err) {
+    console.error('Error fetching media URL:', err);
     return null;
   }
 }
