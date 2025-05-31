@@ -1,5 +1,5 @@
 import { connectToDB } from '../../lib/db';
-import Message from '../../models/Message';
+import Message from '../../model/Message';
 
 export async function POST(req) {
   const body = await req.json();
