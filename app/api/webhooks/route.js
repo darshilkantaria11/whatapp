@@ -26,7 +26,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  await dbConnect();
+  await connectToDB();
   const body = await req.json();
 
   const token = process.env.WHATSAPP_TOKEN;
