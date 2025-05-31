@@ -1,6 +1,17 @@
+import { connectToDB } from '../../lib/db';
+import Message from '../../model/Message';
 import { NextResponse } from 'next/server';
-import { getAllMessages } from '../../lib/messagesStore';
 
 export async function GET() {
-  return NextResponse.json(getAllMessages());
+  await connectToDB();
+  const allMessages = await Message.find().sort({ createdAt: 1 }).lean();
+
+  const grouped = {};
+  allMessages.forEach((msg) => {
+    const phone = msg.phone;
+    if (!grouped[phone]) grouped[phone] = [];
+    grouped[phone].push(msg);
+  });
+
+  return NextResponse.json(grouped);
 }

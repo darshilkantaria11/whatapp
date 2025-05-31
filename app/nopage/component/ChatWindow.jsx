@@ -6,7 +6,6 @@ export default function ChatWindow({ phone, messages, onSend }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    // Scroll to the bottom on new messages
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -30,7 +29,23 @@ export default function ChatWindow({ phone, messages, onSend }) {
             key={index}
             className={`message ${msg.direction === 'outgoing' ? 'sent' : 'received'}`}
           >
-            {msg.content}
+            {msg.type === 'text' && <p>{msg.content}</p>}
+
+            {msg.type === 'image' && msg.mediaUrl && (
+              <img src={msg.mediaUrl} alt="sent image" style={{ maxWidth: 200, borderRadius: '8px' }} />
+            )}
+
+            {msg.type === 'audio' && msg.mediaUrl && (
+              <audio controls src={msg.mediaUrl} />
+            )}
+
+            {msg.type === 'sticker' && msg.mediaUrl && (
+              <img src={msg.mediaUrl} alt="sticker" style={{ maxWidth: 150 }} />
+            )}
+
+            {msg.type !== 'text' && !msg.mediaUrl && (
+              <p>[{msg.type.toUpperCase()} received — no preview]</p>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />

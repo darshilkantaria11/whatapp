@@ -35,43 +35,54 @@ export async function POST(req) {
     }
 
     const body = JSON.parse(rawBody);
-    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages || [];
+    const entries = body.entry || [];
 
-    await connectToDB(); // before saving
+    await connectToDB();
 
-    for (const msg of messages) {
-      const from = msg.from;
-      let type = msg.type || 'unknown';
-      let content = '[non-text]';
-      let mediaUrl = '';
+    for (const entry of entries) {
+      const changes = entry.changes || [];
 
-      if (type === 'text') {
-        content = msg.text.body;
-      } else if (['image', 'audio', 'sticker'].includes(type)) {
-        const mediaId = msg[type]?.id;
-        mediaUrl = await getMediaUrl(mediaId); // we'll write this helper
-        content = `[${type} message]`;
+      for (const change of changes) {
+        const value = change.value;
+        const messages = value.messages || [];
+
+        for (const msg of messages) {
+          const phone = value.contacts?.[0]?.wa_id || msg.from;
+          const type = msg.type;
+          let content = '';
+          let mediaUrl = null;
+
+          if (type === 'text') {
+            content = msg.text.body;
+          } else if (['image', 'audio', 'sticker'].includes(type)) {
+            const mediaId = msg[type]?.id;
+            const fetchedUrl = await fetchMediaUrl(mediaId);
+            mediaUrl = fetchedUrl;
+            content = `[${type.toUpperCase()} Message]`;
+          } else {
+            content = `[Unsupported message type: ${type}]`;
+          }
+
+          await Message.create({
+            phone,
+            content,
+            type,
+            mediaUrl,
+            direction: 'incoming',
+          });
+        }
       }
-
-      await Message.create({
-        phone: from,
-        content,
-        type,
-        direction: 'incoming',
-        mediaUrl
-      });
-
-      console.log(`[RECEIVED] ${type} from ${from}`);
     }
 
     return NextResponse.json({ status: 'success' });
   } catch (error) {
-    console.error('[POST] Error:', error);
+    console.error('[WEBHOOK ERROR]:', error);
     return new NextResponse('Server error', { status: 500 });
   }
 }
 
-// Helper to read raw request body
+// --- Helper functions below ---
+
 async function readRawBody(req) {
   const chunks = [];
   for await (const chunk of req.body) {
@@ -80,26 +91,33 @@ async function readRawBody(req) {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
-// Enhanced signature verification
 function verifySignature(rawBody, headerSignature) {
   if (!headerSignature) return false;
 
   const appSecret = process.env.FB_APP_SECRET;
-  if (!appSecret) {
-    console.error('FB_APP_SECRET is missing!');
-    return false;
-  }
-
   const expectedSignature = crypto
     .createHmac('sha256', appSecret)
     .update(rawBody)
     .digest('hex');
 
   const expected = `sha256=${expectedSignature}`;
-
-  // Securely compare signatures
   return crypto.timingSafeEqual(
     Buffer.from(expected),
     Buffer.from(headerSignature)
   );
+}
+
+async function fetchMediaUrl(mediaId) {
+  const token = process.env.WHATSAPP_TOKEN;
+  try {
+    // Step 1: Get temporary media URL
+    const res = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json();
+    return json.url || null;
+  } catch (e) {
+    console.error('Failed to fetch media URL', e);
+    return null;
+  }
 }
