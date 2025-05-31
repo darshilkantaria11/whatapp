@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { addMessage } from '../../lib/messagesStore';
+import { connectToDB } from '../../lib/db';
+import Message from '../../model/Message';
 
 // Add this to prevent Next.js from parsing the body
 export const config = {
@@ -20,7 +22,7 @@ export async function GET(req) {
     status: 200,
     headers: { 'Cache-Control': 'no-store' }
   });
- 
+
 }
 
 export async function POST(req) {
@@ -35,18 +37,31 @@ export async function POST(req) {
     const body = JSON.parse(rawBody);
     const messages = body.entry?.[0]?.changes?.[0]?.value?.messages || [];
 
+    await connectToDB(); // before saving
+
     for (const msg of messages) {
       const from = msg.from;
-      const content = msg.text?.body || '[non-text message]';
+      let type = msg.type || 'unknown';
+      let content = '[non-text]';
+      let mediaUrl = '';
 
-      addMessage(from, {
-        from,
+      if (type === 'text') {
+        content = msg.text.body;
+      } else if (['image', 'audio', 'sticker'].includes(type)) {
+        const mediaId = msg[type]?.id;
+        mediaUrl = await getMediaUrl(mediaId); // we'll write this helper
+        content = `[${type} message]`;
+      }
+
+      await Message.create({
+        phone: from,
         content,
+        type,
         direction: 'incoming',
-        timestamp: new Date().toISOString(),
+        mediaUrl
       });
 
-      console.log(`[RECEIVED] From ${from}: ${content}`);
+      console.log(`[RECEIVED] ${type} from ${from}`);
     }
 
     return NextResponse.json({ status: 'success' });
@@ -68,7 +83,7 @@ async function readRawBody(req) {
 // Enhanced signature verification
 function verifySignature(rawBody, headerSignature) {
   if (!headerSignature) return false;
-  
+
   const appSecret = process.env.FB_APP_SECRET;
   if (!appSecret) {
     console.error('FB_APP_SECRET is missing!');
@@ -81,7 +96,7 @@ function verifySignature(rawBody, headerSignature) {
     .digest('hex');
 
   const expected = `sha256=${expectedSignature}`;
-  
+
   // Securely compare signatures
   return crypto.timingSafeEqual(
     Buffer.from(expected),

@@ -1,3 +1,6 @@
+import { connectToDB } from '../../lib/db';
+import Message from '../../models/Message';
+
 export async function POST(req) {
   const body = await req.json();
   const { to, text } = body;
@@ -32,6 +35,15 @@ export async function POST(req) {
     if (!response.ok) {
       return Response.json({ error: data.error }, { status: response.status });
     }
+
+    // ✅ Save outgoing message to MongoDB
+    await connectToDB();
+    await Message.create({
+      phone: to,
+      content: text,
+      type: 'text',
+      direction: 'outgoing',
+    });
 
     return Response.json({ success: true, messageId: data.messages?.[0]?.id });
   } catch (err) {
