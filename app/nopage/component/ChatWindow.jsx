@@ -33,7 +33,9 @@ export default function ChatWindow({ phone, messages, onSend }) {
             {msg.type === 'text' && <p>{msg.content}</p>}
 
             {msg.type === 'image' && msg.mediaUrl && (
-              <img src={msg.mediaUrl} alt="sent image" style={{ maxWidth: 200, borderRadius: '8px' }} />
+            //   <img src={msg.mediaUrl} alt="sent image" style={{ maxWidth: 200, borderRadius: '8px' }} />
+              <img src={`/api/media?url=${encodeURIComponent(msg.content)}`} />
+
             )}
 
             {msg.type === 'audio' && msg.mediaUrl && (

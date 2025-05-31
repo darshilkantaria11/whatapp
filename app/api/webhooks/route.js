@@ -26,58 +26,62 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  await dbConnect();
+  const body = await req.json();
+
+  const token = process.env.WHATSAPP_TOKEN;
+
   try {
-    const rawBody = await readRawBody(req);
-    const signature = req.headers.get('x-hub-signature-256') || '';
+    const entry = body?.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const message = changes?.value?.messages?.[0];
+    const phone = message?.from;
 
-    if (!verifySignature(rawBody, signature)) {
-      return new NextResponse('Invalid signature', { status: 403 });
+    if (!message || !phone) {
+      return Response.json({ success: false });
     }
 
-    const body = JSON.parse(rawBody);
-    const entries = body.entry || [];
+    const type = message.type;
 
-    await connectToDB();
-
-    for (const entry of entries) {
-      const changes = entry.changes || [];
-
-      for (const change of changes) {
-        const value = change.value;
-        const messages = value.messages || [];
-
-        for (const msg of messages) {
-          const phone = value.contacts?.[0]?.wa_id || msg.from;
-          const type = msg.type;
-          let content = '';
-          let mediaUrl = null;
-
-          if (type === 'text') {
-            content = msg.text.body;
-          } else if (['image', 'audio', 'sticker'].includes(type)) {
-            const mediaId = msg[type]?.id;
-            const fetchedUrl = await fetchMediaUrl(mediaId);
-            mediaUrl = fetchedUrl;
-            content = `[${type.toUpperCase()} Message]`;
-          } else {
-            content = `[Unsupported message type: ${type}]`;
-          }
-
-          await Message.create({
-            phone,
-            content,
-            type,
-            mediaUrl,
-            direction: 'incoming',
-          });
-        }
-      }
+    if (type === 'text') {
+      await Message.create({
+        phone,
+        content: message.text.body,
+        type: 'text',
+        direction: 'incoming',
+      });
     }
 
-    return NextResponse.json({ status: 'success' });
+    // 👇 Handle media types
+    if (['image', 'audio', 'sticker'].includes(type)) {
+      const mediaId = message[type]?.id;
+
+      // Step 1: Get the media URL
+      const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const mediaData = await mediaRes.json();
+      const mediaUrl = mediaData.url;
+
+      // Step 2: Save the signed URL to DB
+      await Message.create({
+        phone,
+        content: mediaUrl,
+        type,
+        direction: 'incoming',
+      });
+
+      // (Optional) You can also fetch the actual binary and store it in cloud or base64 if needed
+    }
+
+    return Response.json({ success: true });
   } catch (error) {
-    console.error('[WEBHOOK ERROR]:', error);
-    return new NextResponse('Server error', { status: 500 });
+    console.error('Webhook error:', error);
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
