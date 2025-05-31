@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import ChatList from '../nopage/component/ChatList';
 import ChatWindow from '../nopage/component/ChatWindow';
+import { useEffect } from 'react';
 
 
 export default function ChatPage() {
@@ -12,6 +13,16 @@ export default function ChatPage() {
   const handleSelectChat = (phone) => {
     setSelectedChat(phone);
   };
+
+  useEffect(() => {
+  const interval = setInterval(async () => {
+    const res = await fetch('/api/messages');
+    const data = await res.json();
+    setMessages(data); // update messages state
+  }, 3000);
+
+  return () => clearInterval(interval);
+}, []);
 
   const handleSendMessage = async (phone, text) => {
     const res = await fetch('/api/send', {

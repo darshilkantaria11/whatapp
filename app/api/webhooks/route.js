@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
+import { addMessage } from '../../lib/messagesStore';
 
 // Add this to prevent Next.js from parsing the body
 export const config = {
@@ -14,52 +15,40 @@ export async function GET(req) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  console.log('[GET] Webhook Verification:', {
-    mode,
-    token: token ? '***' : 'missing',
-    challenge
-  });
 
   return new NextResponse(challenge, {
     status: 200,
     headers: { 'Cache-Control': 'no-store' }
   });
-  // Validate verification token
-  // if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
-  //   console.log('[GET] Verification SUCCESS');
-  // }
-
-  // console.error('[GET] Verification FAILED', {
-  //   expectedToken: process.env.VERIFY_TOKEN || 'NOT_SET',
-  //   receivedToken: token || 'missing'
-  // });
-  
-  // return new NextResponse('Verification failed', { status: 403 });
+ 
 }
 
 export async function POST(req) {
   try {
-    // Read raw body as text
     const rawBody = await readRawBody(req);
     const signature = req.headers.get('x-hub-signature-256') || '';
 
-    console.log('[POST] Headers:', {
-      signature: signature ? `${signature.substring(0, 15)}...` : 'MISSING'
-    });
-
-    // Verify signature
     if (!verifySignature(rawBody, signature)) {
-      console.error('[POST] Signature verification FAILED');
       return new NextResponse('Invalid signature', { status: 403 });
     }
 
-    // Parse JSON only after verification
     const body = JSON.parse(rawBody);
-    const response = body.entry[0].changes[0].value.messages;
-    
-    console.log('[POST] Valid payload received:', response);
+    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages || [];
 
-    // Process webhook events here
+    for (const msg of messages) {
+      const from = msg.from;
+      const content = msg.text?.body || '[non-text message]';
+
+      addMessage(from, {
+        from,
+        content,
+        direction: 'incoming',
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`[RECEIVED] From ${from}: ${content}`);
+    }
+
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('[POST] Error:', error);
