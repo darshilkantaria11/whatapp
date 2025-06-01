@@ -18,7 +18,7 @@ export default function MessageInput({ text, setText, onSend, onMediaUpload }) {
         onKeyDown={handleKeyDown}
         placeholder="Type your message..."
       />
-      <input type="file" accept="image/*,audio/*" onChange={handleFileChange} />
+      {/* <input type="file" accept="image/*,audio/*" onChange={handleFileChange} /> */}
       <button onClick={onSend}>Send</button>
     </div>
   );
