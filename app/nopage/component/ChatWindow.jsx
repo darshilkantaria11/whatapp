@@ -31,19 +31,12 @@ export default function ChatWindow({ phone, messages, onSend }) {
             body: formData,
         });
 
-        let data;
-        try {
-            data = await res.json();
-        } catch {
-            alert('Failed to send media: Invalid server response');
-            return;
-        }
-
+        const data = await res.json();
         if (!data.success) {
-            console.error(data.detail);
-            alert('Failed to send media: ' + data.error);
+            alert('Failed to send media: ' + (data.error || 'Unknown error'));
         }
     };
+
 
 
 

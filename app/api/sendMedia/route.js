@@ -1,69 +1,74 @@
+// app/api/sendMedia/route.js
+
 import { NextResponse } from 'next/server';
-import FormData from 'form-data';
+import { writeFile } from 'fs/promises';
+import path from 'path';
 import fetch from 'node-fetch';
+import fs from 'fs';
 
 export async function POST(req) {
+  const formData = await req.formData();
+  const file = formData.get('file');
+  const phone = formData.get('phone');
+  const type = formData.get('type'); // 'image' or 'video'
+
+  if (!file || !phone || !type) {
+    return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+  }
+
+  // Save file temporarily
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const filePath = path.join('/tmp', file.name);
+  await writeFile(filePath, buffer);
+
   try {
-    const form = await req.formData();
-    const file = form.get('file');
-    const phone = form.get('phone');
-    const type = form.get('type'); // 'image' or 'video'
+    // Step 1: Upload to WhatsApp
+    const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/media`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      body: (() => {
+        const data = new FormData();
+        data.append('file', fs.createReadStream(filePath));
+        data.append('type', file.type);
+        data.append('messaging_product', 'whatsapp');
+        return data;
+      })(),
+    });
 
-    if (!file || !phone || !type) {
-      return NextResponse.json({ success: false, error: 'Missing data' }, { status: 400 });
+    const uploadJson = await uploadRes.json();
+    if (!uploadJson.id) {
+      return NextResponse.json({ success: false, error: 'Media upload failed' }, { status: 500 });
     }
 
-    // Upload to WhatsApp
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadForm = new FormData();
-    uploadForm.append('file', buffer, file.name);
-    uploadForm.append('type', file.type);
-    uploadForm.append('messaging_product', 'whatsapp');
-
-    const uploadRes = await fetch(
-      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/media`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    // Step 2: Send media message
+    const sendRes = await fetch(`https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: phone,
+        type,
+        [type]: {
+          id: uploadJson.id,
         },
-        body: uploadForm,
-      }
-    );
+      }),
+    });
 
-    const uploadData = await uploadRes.json();
+    const sendJson = await sendRes.json();
 
-    if (!uploadData.id) {
-      return NextResponse.json({ success: false, error: 'Media upload failed', detail: uploadData }, { status: 500 });
+    if (sendJson.error) {
+      return NextResponse.json({ success: false, error: sendJson.error.message }, { status: 500 });
     }
 
-    // Send message
-    const sendRes = await fetch(
-      `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: phone,
-          type,
-          [type]: { id: uploadData.id },
-        }),
-      }
-    );
-
-    const sendData = await sendRes.json();
-
-    if (sendData.error) {
-      return NextResponse.json({ success: false, error: 'Failed to send message', detail: sendData }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true }, { status: 200 });
-  } catch (err) {
-    console.error('Failed to send media:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Media send failed:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
