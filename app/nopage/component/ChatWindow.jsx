@@ -57,6 +57,10 @@ export default function ChatWindow({ phone, messages, onSend }) {
                             {msg.type === 'sticker' && (
                                 <MediaWithFallback type="sticker" url={mediaUrl} alt="Sticker" />
                             )}
+
+                            {msg.type === 'video' && (
+                                <MediaWithFallback type="video" url={mediaUrl} />
+                            )}
                         </div>
                     );
                 })}
@@ -95,6 +99,16 @@ function MediaWithFallback({ type, url, alt }) {
             </audio>
         );
     }
+
+    if (type === 'video') {
+        return (
+            <video controls onError={() => setError(true)} style={{ maxWidth: '300px', borderRadius: '8px' }}>
+                <source src={url} type="video/mp4" />
+                Your browser does not support the video tag.
+            </video>
+        );
+    }
+
 
     return null;
 }

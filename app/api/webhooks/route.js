@@ -60,7 +60,7 @@ export async function POST(req) {
     }
 
     // ✅ Handle image/audio/sticker messages
-    if (['image', 'audio', 'sticker'].includes(type)) {
+    if (['image', 'audio', 'sticker', 'video'].includes(type)) {
       const mediaId = message[type]?.id;
       const mediaUrl = await fetchMediaUrl(mediaId, token);
       if (!mediaUrl) throw new Error('Failed to retrieve media URL');
