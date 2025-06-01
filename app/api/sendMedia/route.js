@@ -1,5 +1,3 @@
-// app/api/sendMedia/route.js
-import { NextResponse } from 'next/server';
 import formidable from 'formidable';
 import fs from 'fs';
 import { Readable } from 'stream';
@@ -11,51 +9,71 @@ export const config = {
 };
 
 export async function POST(req) {
-  const token = process.env.WHATSAPP_TOKEN;
-  const form = formidable({ multiples: false });
+  return new Promise((resolve, reject) => {
+    const form = formidable({ keepExtensions: true });
 
-  const [fields, files] = await new Promise((resolve, reject) => {
-    form.parse(req, (err, fields, files) => {
-      if (err) reject(err);
-      else resolve([fields, files]);
+    form.parse(req, async (err, fields, files) => {
+      if (err) return resolve(Response.json({ success: false, error: err.message }));
+
+      const phone = fields.phone?.[0];
+      const type = fields.type?.[0];
+      const file = files.file?.[0];
+
+      if (!phone || !file || !type) {
+        return resolve(Response.json({ success: false, error: 'Missing fields' }));
+      }
+
+      try {
+        // Step 1: Upload media to WhatsApp Cloud API
+        const token = process.env.WHATSAPP_TOKEN;
+        const buffer = fs.readFileSync(file.filepath);
+
+        const formData = new FormData();
+        formData.append('file', new Blob([buffer]), file.originalFilename);
+        formData.append('messaging_product', 'whatsapp');
+        formData.append('type', type);
+
+        const uploadRes = await fetch('https://graph.facebook.com/v19.0/me/media', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        const uploadJson = await uploadRes.json();
+        if (!uploadJson.id) {
+          return resolve(Response.json({ success: false, error: 'Upload failed', uploadJson }));
+        }
+
+        // Step 2: Send media message
+        const sendRes = await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: phone,
+            type,
+            [type]: {
+              id: uploadJson.id,
+            },
+          }),
+        });
+
+        const sendJson = await sendRes.json();
+
+        if (sendJson.error) {
+          return resolve(Response.json({ success: false, error: sendJson.error.message }));
+        }
+
+        resolve(Response.json({ success: true }));
+      } catch (err) {
+        console.error('SendMedia error:', err);
+        resolve(Response.json({ success: false, error: err.message }));
+      }
     });
   });
-
-  const phone = fields.phone;
-  const file = files.file;
-
-  const mediaBuffer = fs.readFileSync(file.filepath);
-  const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/media`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: new URLSearchParams({
-      messaging_product: 'whatsapp',
-      type: file.mimetype.startsWith('image') ? 'image' : 'audio',
-      file: mediaBuffer,
-    }),
-  });
-
-  const mediaJson = await mediaRes.json();
-  const mediaId = mediaJson.id;
-
-  // Send the media message
-  await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to: phone,
-      type: file.mimetype.startsWith('image') ? 'image' : 'audio',
-      [file.mimetype.startsWith('image') ? 'image' : 'audio']: {
-        id: mediaId,
-      },
-    }),
-  });
-
-  return NextResponse.json({ success: true });
 }
