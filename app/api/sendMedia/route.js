@@ -1,82 +1,82 @@
 import FormData from 'form-data';
-import fetch from 'node-fetch'; // Node.js environment fetch polyfill
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file');
-    const phone = formData.get('phone');
-    const type = formData.get('type'); // 'image' or 'video'
+    const { phone, name, type, base64Data } = await req.json();
 
-    if (!file || !phone || !type) {
-      return new Response(JSON.stringify({ success: false, error: 'Missing fields' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (!phone || !name || !type || !base64Data) {
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400 });
     }
 
-    // Convert file to Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Convert base64 string to Buffer
+    const buffer = Buffer.from(base64Data, 'base64');
 
-    // Prepare multipart form data for WhatsApp upload
-    const whatsappFormData = new FormData();
-    whatsappFormData.append('file', buffer, { filename: file.name, contentType: file.type });
-    whatsappFormData.append('messaging_product', 'whatsapp');
-    whatsappFormData.append('type', type);
+    // Prepare multipart/form-data body for media upload
+    const form = new FormData();
+    form.append('file', buffer, { filename: name, contentType: type });
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', type);
 
-    // Upload media
-    const uploadRes = await fetch(`https://graph.facebook.com/v19.0/me/media`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        ...whatsappFormData.getHeaders(), // important!
-      },
-      body: whatsappFormData,
-    });
+    // Upload media to WhatsApp
+    const uploadResponse = await fetch(
+      `https://graph.facebook.com/v15.0/${process.env.PHONE_NUMBER_ID}/media`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          ...form.getHeaders(),
+        },
+        body: form,
+      }
+    );
 
-    const uploadJson = await uploadRes.json();
+    const uploadJson = await uploadResponse.json();
 
-    if (!uploadJson.id) {
+    if (!uploadResponse.ok || !uploadJson.id) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Media upload failed', details: uploadJson }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Media upload failed', details: uploadJson }),
+        { status: 500 }
       );
     }
 
-    // Send media message with uploaded media ID
-    const messageRes = await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json',
+    const mediaId = uploadJson.id;
+
+    // Now send the media message
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: type.startsWith('image/') ? 'image' : type.startsWith('video/') ? 'video' : 'document',
+      [type.startsWith('image/') ? 'image' : 'video']: {
+        id: mediaId,
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: phone,
-        type: type,
-        [type]: { id: uploadJson.id },
-      }),
-    });
+    };
 
-    const messageJson = await messageRes.json();
+    const sendResponse = await fetch(
+      `https://graph.facebook.com/v15.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messagePayload),
+      }
+    );
 
-    if (messageJson.error) {
+    const sendJson = await sendResponse.json();
+
+    if (!sendResponse.ok) {
       return new Response(
-        JSON.stringify({ success: false, error: messageJson.error.message }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Sending media message failed', details: sendJson }),
+        { status: 500 }
       );
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, messageId: sendJson.messages[0].id }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error in sendMedia:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }

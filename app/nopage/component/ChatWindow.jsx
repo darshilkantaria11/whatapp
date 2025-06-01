@@ -21,25 +21,29 @@ export default function ChatWindow({ phone, messages, onSend }) {
         return <div className="chat-window">Select a chat to start messaging.</div>;
     }
     const handleMediaUpload = async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('phone', phone);
-        formData.append('type', file.type.startsWith('video') ? 'video' : 'image');
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('phone', phone);
 
-        const res = await fetch('/api/sendMedia', {
-            method: 'POST',
-            body: formData,
-        });
+            // We don't really need to send 'type' here if your backend infers it from file.type.
+            // But if you want, keep it:
+            formData.append('type', file.type);
 
-        const data = await res.json();
+            const res = await fetch('/api/sendMedia', {
+                method: 'POST',
+                body: formData,
+            });
 
-        if (!data.success) {
-            alert('Failed to send media: ' + (data.error || 'Unknown error'));
+            const data = await res.json();
+
+            if (!data.success) {
+                alert('Failed to send media: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Failed to send media: ' + error.message);
         }
     };
-
-
-
 
 
 
