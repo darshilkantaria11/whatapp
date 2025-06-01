@@ -1,21 +1,24 @@
-import React from 'react';
-
-export default function MessageInput({ text, setText, onSend }) {
+// MessageInput.js
+export default function MessageInput({ text, setText, onSend, onMediaUpload }) {
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSend();
-    }
+    if (e.key === 'Enter') onSend();
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) onMediaUpload(file);
   };
 
   return (
     <div className="message-input">
-      <textarea
+      <input
+        type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Type a message"
+        placeholder="Type your message..."
       />
+      <input type="file" accept="image/*,audio/*" onChange={handleFileChange} />
       <button onClick={onSend}>Send</button>
     </div>
   );

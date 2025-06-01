@@ -20,6 +20,17 @@ export default function ChatWindow({ phone, messages, onSend }) {
     if (!phone) {
         return <div className="chat-window">Select a chat to start messaging.</div>;
     }
+    const handleMediaUpload = async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('phone', phone);
+
+        await fetch('/api/sendMedia', {
+            method: 'POST',
+            body: formData,
+        });
+    };
+
 
     return (
         <div className="chat-window">
@@ -51,7 +62,8 @@ export default function ChatWindow({ phone, messages, onSend }) {
                 })}
                 <div ref={bottomRef} />
             </div>
-            <MessageInput text={text} setText={setText} onSend={handleSend} />
+            <MessageInput text={text} setText={setText} onSend={handleSend} onMediaUpload={handleMediaUpload} />
+
         </div>
     );
 }
