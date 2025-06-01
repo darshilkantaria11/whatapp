@@ -69,7 +69,7 @@ export default function ChatWindow({ phone, messages, onSend }) {
                             {msg.type === 'video' && (
                                 <>
                                     <MediaWithFallback type="video" url={mediaUrl} />
-                                    {msg.caption && <p className="caption">{msg.caption}</p>}
+                                    {/* {msg.caption && <p className="caption">{msg.caption}</p>} */}
                                 </>
                             )}
 
