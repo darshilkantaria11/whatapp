@@ -1,24 +1,24 @@
 // app/api/sendMedia/route.js
+
 export async function POST(request) {
   try {
-    // Parse the incoming form data
     const formData = await request.formData();
     const file = formData.get('file');
     const phone = formData.get('phone');
-    const type = formData.get('type');
+    const type = formData.get('type'); // 'image' or 'video'
 
     if (!file || !phone || !type) {
-      return new Response(JSON.stringify({ success: false, error: 'Missing fields' }), {
+      return new Response(JSON.stringify({ success: false, error: 'Missing required fields.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Convert the file to a buffer
+    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Prepare the form data for WhatsApp API
+    // Prepare form data for WhatsApp API
     const whatsappFormData = new FormData();
     whatsappFormData.append('file', new Blob([buffer]), file.name);
     whatsappFormData.append('messaging_product', 'whatsapp');
@@ -36,7 +36,7 @@ export async function POST(request) {
     const uploadResult = await uploadResponse.json();
 
     if (!uploadResult.id) {
-      return new Response(JSON.stringify({ success: false, error: 'Media upload failed', details: uploadResult }), {
+      return new Response(JSON.stringify({ success: false, error: 'Media upload failed.', details: uploadResult }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });

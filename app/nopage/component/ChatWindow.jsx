@@ -40,6 +40,7 @@ export default function ChatWindow({ phone, messages, onSend }) {
 
 
 
+
     return (
         <div className="chat-window">
             <div className="chat-header">Chat with {phone}</div>
