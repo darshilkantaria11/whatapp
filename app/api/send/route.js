@@ -2,13 +2,25 @@ import { connectToDB } from '../../lib/db';
 import Message from '../../model/Message';
 
 export async function POST(req) {
+  const secret = req.headers.get("x-api-key");
+  const mysecret = process.env.NEXT_PUBLIC_API_KEY
+  if (secret !== mysecret) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
   const { to, text } = await req.json();
 
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.PHONE_NUMBER_ID;
 
   if (!to || !text) {
-    return Response.json({ error: 'Missing recipient or message text' }, { status: 400 });
+    return new Response(
+      JSON.stringify({ error: 'Missing recipient or message text' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -33,7 +45,10 @@ export async function POST(req) {
     const data = await response.json();
 
     if (!response.ok) {
-      return Response.json({ error: data.error }, { status: response.status });
+      return new Response(
+        JSON.stringify({ error: data.error }),
+        { status: response.status, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Save outgoing message to database
@@ -47,14 +62,20 @@ export async function POST(req) {
       timestamp: new Date(),
     });
 
-    return Response.json({ 
-      success: true, 
-      messageId: data.messages?.[0]?.id 
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        messageId: data.messages?.[0]?.id,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (err) {
-    return Response.json({ 
-      error: 'Failed to send message', 
-      details: err.message 
-    }, { status: 500 });
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to send message',
+        details: err.message,
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }

@@ -52,7 +52,10 @@ export default function ChatPage() {
     const handleSendMessage = async (phone, text) => {
         const res = await fetch('/api/send', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.NEXT_PUBLIC_API_KEY,
+            },
             body: JSON.stringify({ to: phone, text }),
         });
 
