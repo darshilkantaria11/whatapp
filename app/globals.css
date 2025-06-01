@@ -187,3 +187,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* In your global CSS */
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  max-width: 80%;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 18px;
+}
+
+.message.sent {
+  align-self: flex-end;
+  background-color: #dcf8c6;
+}
+
+.message.received {
+  align-self: flex-start;
+  background-color: #ffffff;
+}

@@ -1,29 +1,38 @@
+// /api/messages
 import { connectToDB } from '../../lib/db';
 import Message from '../../model/Message';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   await connectToDB();
-  const allMessages = await Message.find().sort({ timestamp: -1 }).lean();
+  
+  // Get all messages sorted chronologically
+  const allMessages = await Message.find().sort({ timestamp: 1 }).lean();
 
-  const chats = {};
-  allMessages.forEach(msg => {
+  const grouped = {};
+  
+  allMessages.forEach((msg) => {
     const phone = msg.phone;
-    if (!chats[phone]) {
-      chats[phone] = {
+    if (!grouped[phone]) {
+      grouped[phone] = {
         messages: [],
         unreadCount: 0,
         lastMessage: msg.timestamp,
       };
     }
-    chats[phone].messages.push(msg);
+    
+    grouped[phone].messages.push(msg);
+    
+    // Count unread incoming messages
     if (!msg.read && msg.direction === 'incoming') {
-      chats[phone].unreadCount++;
+      grouped[phone].unreadCount++;
     }
-    if (msg.timestamp > chats[phone].lastMessage) {
-      chats[phone].lastMessage = msg.timestamp;
+    
+    // Track latest message timestamp
+    if (new Date(msg.timestamp) > new Date(grouped[phone].lastMessage)) {
+      grouped[phone].lastMessage = msg.timestamp;
     }
   });
 
-  return NextResponse.json(chats);
+  return NextResponse.json(grouped);
 }

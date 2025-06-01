@@ -1,35 +1,42 @@
-export default function ChatList({ chats, onSelect, selected }) {
-  // Sort chats by last message timestamp
-  const sortedChats = Object.entries(chats).sort(
-    ([, a], [, b]) => new Date(b.lastMessage) - new Date(a.lastMessage)
-  );
+// ChatList.js
+import React from 'react';
 
-  return (
-    <div className="chat-list">
-      <h2>Chats</h2>
-      <ul>
-        {sortedChats.length === 0 ? (
-          <li className="empty-chat">No chats yet</li>
-        ) : (
-          sortedChats.map(([phone, chatData]) => (
-            <li
-              key={phone}
-              className={`chat-item ${selected === phone ? 'active' : ''}`}
-              onClick={() => onSelect(phone)}
-            >
-              <div className="chat-header">
-                <span>{phone}</span>
-                {chatData.unreadCount > 0 && (
-                  <span className="unread-badge">{chatData.unreadCount}</span>
+export default function ChatList({ chats, onSelect, selected }) {
+    return (
+        <div className="chat-list">
+            <h2 className="chat-list-title">Chats</h2>
+            <ul>
+                {chats.length === 0 ? (
+                    <li className="empty-chat">No chats yet</li>
+                ) : (
+                    chats.map(([phone, chatData]) => {
+                        // Safely handle undefined chatData or messages
+                        const messages = chatData?.messages || [];
+                        const lastMessage = messages.length > 0 
+                            ? messages[messages.length - 1].content.substring(0, 30)
+                            : 'No messages';
+                        const unreadCount = chatData?.unreadCount || 0;
+
+                        return (
+                            <li
+                                key={phone}
+                                className={`chat-item ${selected === phone ? 'active' : ''}`}
+                                onClick={() => onSelect(phone)}
+                            >
+                                <div className="chat-header">
+                                    <span>{phone}</span>
+                                    {unreadCount > 0 && (
+                                        <span className="unread-badge">{unreadCount}</span>
+                                    )}
+                                </div>
+                                <div className="last-message">
+                                    {lastMessage}
+                                </div>
+                            </li>
+                        );
+                    })
                 )}
-              </div>
-              <div className="last-message">
-                {chatData.messages[0]?.content?.substring(0, 30) || 'No messages'}
-              </div>
-            </li>
-          ))
-        )}
-      </ul>
-    </div>
-  );
+            </ul>
+        </div>
+    );
 }

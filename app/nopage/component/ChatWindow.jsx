@@ -37,7 +37,9 @@ export default function ChatWindow({ phone, messages, onSend }) {
         }
     };
 
-
+    const sortedMessages = [...(messages || [])].sort((a, b) =>
+        new Date(a.timestamp) - new Date(b.timestamp)
+    );
 
 
 
@@ -45,7 +47,7 @@ export default function ChatWindow({ phone, messages, onSend }) {
         <div className="chat-window">
             <div className="chat-header">Chat with {phone}</div>
             <div className="chat-messages">
-                {messages.map((msg, index) => {
+                {sortedMessages.map((msg, index) => {
                     const mediaUrl = `/api/media?url=${encodeURIComponent(msg.content)}`;
 
                     return (
