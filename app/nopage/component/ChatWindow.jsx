@@ -61,12 +61,12 @@ export default function ChatWindow({ phone, messages, onSend }) {
                                 <MediaWithFallback type="image" url={mediaUrl} alt="Image" />
                             )}
 
-                            {msg.type === 'image' && (
+                            {/* {msg.type === 'image' && (
                                 <>
                                     <MediaWithFallback type="image" url={mediaUrl} alt="Image" />
                                     {msg.caption && <p className="caption">{msg.caption}</p>}
                                 </>
-                            )}
+                            )} */}
 
                             {msg.type === 'video' && (
                                 <>
