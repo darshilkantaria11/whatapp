@@ -26,16 +26,18 @@ export default function ChatWindow({ phone, messages, onSend }) {
         formData.append('phone', phone);
         formData.append('type', file.type.startsWith('video') ? 'video' : 'image');
 
-        const response = await fetch('/api/sendMedia', {
+        const res = await fetch('/api/sendMedia', {
             method: 'POST',
             body: formData,
         });
 
-        const result = await response.json();
-        if (!result.success) {
-            alert('Failed to send media');
+        const data = await res.json();
+
+        if (!data.success) {
+            alert('Failed to send media: ' + (data.error || 'Unknown error'));
         }
     };
+
 
 
 

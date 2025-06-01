@@ -9,9 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "form-data": "^4.0.2",
     "formidable": "^3.5.4",
     "mongoose": "^8.15.1",
     "next": "15.3.3",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "whatsapp-cloud-api-express": "^3.1.0"
