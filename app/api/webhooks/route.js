@@ -9,7 +9,7 @@ export const config = {
   },
 };
 
-// Webhook verification (for WhatsApp setup)
+// Webhook verification
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get('hub.mode');
@@ -29,7 +29,7 @@ export async function POST(req) {
 
   let body;
   try {
-    body = await req.json(); // Raw body parsing not used unless you verify signature
+    body = await req.json();
   } catch (err) {
     console.error('Error parsing JSON:', err);
     return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 });
@@ -49,7 +49,7 @@ export async function POST(req) {
 
     const type = message.type;
 
-    // ✅ Handle text messages
+    // ✅ Handle plain text messages
     if (type === 'text') {
       await Message.create({
         phone,
@@ -59,18 +59,31 @@ export async function POST(req) {
       });
     }
 
-    // ✅ Handle image/audio/sticker messages
-    if (['image', 'audio', 'sticker', 'video'].includes(type)) {
+    // ✅ Handle media types with optional captions
+    if (['image', 'video', 'audio', 'sticker'].includes(type)) {
       const mediaId = message[type]?.id;
+      const caption = message[type]?.caption || '';
       const mediaUrl = await fetchMediaUrl(mediaId, token);
       if (!mediaUrl) throw new Error('Failed to retrieve media URL');
 
+      // Save the media message
       await Message.create({
         phone,
         content: mediaUrl,
         type,
         direction: 'incoming',
+        caption, // Add this field in your DB schema if not already present
       });
+
+      // Optionally: Save the caption as a separate text message if needed
+      if (caption) {
+        await Message.create({
+          phone,
+          content: caption,
+          type: 'text',
+          direction: 'incoming',
+        });
+      }
     }
 
     return NextResponse.json({ success: true });

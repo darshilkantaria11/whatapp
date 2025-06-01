@@ -59,16 +59,22 @@ export default function ChatWindow({ phone, messages, onSend }) {
                                 <MediaWithFallback type="image" url={mediaUrl} alt="Image" />
                             )}
 
-                            {msg.type === 'audio' && (
-                                <MediaWithFallback type="audio" url={mediaUrl} />
+                            {msg.type === 'image' && (
+                                <>
+                                    <MediaWithFallback type="image" url={mediaUrl} alt="Image" />
+                                    {msg.caption && <p className="caption">{msg.caption}</p>}
+                                </>
+                            )}
+
+                            {msg.type === 'video' && (
+                                <>
+                                    <MediaWithFallback type="video" url={mediaUrl} />
+                                    {msg.caption && <p className="caption">{msg.caption}</p>}
+                                </>
                             )}
 
                             {msg.type === 'sticker' && (
                                 <MediaWithFallback type="sticker" url={mediaUrl} alt="Sticker" />
-                            )}
-
-                            {msg.type === 'video' && (
-                                <MediaWithFallback type="video" url={mediaUrl} />
                             )}
                         </div>
                     );
