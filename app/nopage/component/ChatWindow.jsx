@@ -1,4 +1,4 @@
-"use client"
+'use client';
 import { useState, useRef, useEffect } from 'react';
 import MessageInput from './MessageInput';
 
@@ -25,45 +25,64 @@ export default function ChatWindow({ phone, messages, onSend }) {
         <div className="chat-window">
             <div className="chat-header">Chat with {phone}</div>
             <div className="chat-messages">
-                {messages.map((msg, index) => (
-                    <div
-                        key={index}
-                        className={`message ${msg.direction === 'outgoing' ? 'sent' : 'received'}`}
-                    >
-                        {msg.type === 'text' && <p>{msg.content}</p>}
+                {messages.map((msg, index) => {
+                    const mediaUrl = `/api/media?url=${encodeURIComponent(msg.content)}`;
 
-                        {msg.type === 'image' && (
-                            <img
-                                src={`/api/media?url=${encodeURIComponent(msg.content)}`}
-                                alt="Image"
-                                style={{ maxWidth: '300px', borderRadius: '8px' }}
-                            />
-                        )}
+                    return (
+                        <div
+                            key={index}
+                            className={`message ${msg.direction === 'outgoing' ? 'sent' : 'received'}`}
+                        >
+                            {msg.type === 'text' && <p>{msg.content}</p>}
 
-                        {msg.type === 'audio' && (
-                            <audio controls>
-                                <source src={`/api/media?url=${encodeURIComponent(msg.content)}`} type="audio/mpeg" />
-                                Your browser does not support the audio element.
-                            </audio>
-                        )}
+                            {msg.type === 'image' && (
+                                <MediaWithFallback type="image" url={mediaUrl} alt="Image" />
+                            )}
 
-                        {msg.type === 'sticker' && (
-                            <img
-                                src={`/api/media?url=${encodeURIComponent(msg.content)}`}
-                                alt="Sticker"
-                                style={{ maxWidth: '150px' }}
-                            />
-                        )}
+                            {msg.type === 'audio' && (
+                                <MediaWithFallback type="audio" url={mediaUrl} />
+                            )}
 
-
-                        {msg.type !== 'text' && !msg.mediaUrl && (
-                            <p>[{msg.type.toUpperCase()} received — no preview]</p>
-                        )}
-                    </div>
-                ))}
+                            {msg.type === 'sticker' && (
+                                <MediaWithFallback type="sticker" url={mediaUrl} alt="Sticker" />
+                            )}
+                        </div>
+                    );
+                })}
                 <div ref={bottomRef} />
             </div>
             <MessageInput text={text} setText={setText} onSend={handleSend} />
         </div>
     );
+}
+
+// ✅ Fallback component for image/audio/sticker
+function MediaWithFallback({ type, url, alt }) {
+    const [error, setError] = useState(false);
+
+    if (error) {
+        return <p>[{type.toUpperCase()} received — no preview]</p>;
+    }
+
+    if (type === 'image' || type === 'sticker') {
+        return (
+            <img
+                src={url}
+                alt={alt}
+                style={{ maxWidth: type === 'sticker' ? '150px' : '300px', borderRadius: '8px' }}
+                onError={() => setError(true)}
+            />
+        );
+    }
+
+    if (type === 'audio') {
+        return (
+            <audio controls onError={() => setError(true)}>
+                <source src={url} type="audio/mpeg" />
+                Your browser does not support the audio element.
+            </audio>
+        );
+    }
+
+    return null;
 }

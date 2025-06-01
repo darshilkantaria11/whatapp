@@ -62,14 +62,12 @@ export async function POST(req) {
     // ✅ Handle image/audio/sticker messages
     if (['image', 'audio', 'sticker'].includes(type)) {
       const mediaId = message[type]?.id;
-      if (!mediaId) throw new Error('Media ID missing');
-
       const mediaUrl = await fetchMediaUrl(mediaId, token);
       if (!mediaUrl) throw new Error('Failed to retrieve media URL');
 
       await Message.create({
         phone,
-        content: mediaUrl, // You should use a proxy API route to serve this
+        content: mediaUrl,
         type,
         direction: 'incoming',
       });
@@ -88,7 +86,6 @@ async function fetchMediaUrl(mediaId, token) {
     const res = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
     const json = await res.json();
     return json.url || null;
   } catch (err) {
