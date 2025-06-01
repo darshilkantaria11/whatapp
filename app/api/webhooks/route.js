@@ -50,14 +50,17 @@ export async function POST(req) {
     const type = message.type;
 
     // ✅ Handle plain text messages
+    // In POST handler:
     if (type === 'text') {
       await Message.create({
         phone,
         content: message.text.body,
         type: 'text',
         direction: 'incoming',
+        read: false // Add this
       });
     }
+    // Similarly for media messages
 
     // ✅ Handle media types with optional captions
     if (['image', 'video', 'audio', 'sticker'].includes(type)) {

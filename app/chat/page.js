@@ -9,18 +9,38 @@ import { useEffect } from 'react';
 export default function ChatPage() {
     const [selectedChat, setSelectedChat] = useState(null);
     const [messages, setMessages] = useState({}); // key: phone number, value: array of messages
-
-    const handleSelectChat = (phone) => {
+  const [chats, setChats] = useState({});
+  
+    const handleSelectChat = async (phone) => {
         setSelectedChat(phone);
+        if (chats[phone]?.unreadCount > 0) {
+            await fetch('/api/markAsRead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone }),
+            });
+            // Optimistic update
+            setChats(prev => ({
+                ...prev,
+                [phone]: {
+                    ...prev[phone],
+                    unreadCount: 0,
+                    messages: prev[phone].messages.map(m =>
+                        m.direction === 'incoming' ? { ...m, read: true } : m
+                    )
+                }
+            }));
+        }
     };
 
     useEffect(() => {
-        const interval = setInterval(async () => {
+        const fetchMessages = async () => {
             const res = await fetch('/api/messages');
             const data = await res.json();
-            setMessages(data); // update messages state
-        }, 3000);
+            setChats(data);
+        };
 
+        const interval = setInterval(fetchMessages, 3000);
         return () => clearInterval(interval);
     }, []);
 

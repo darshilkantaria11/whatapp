@@ -147,3 +147,43 @@
   background-color: #fff;
   align-self: flex-start;
 }
+
+
+/* indicator */
+/* In your global CSS */
+.unread-badge {
+  background-color: #25D366;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 10px;
+  font-size: 12px;
+}
+
+.chat-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.chat-item.active {
+  background-color: #f0f0f0;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.last-message {
+  color: #666;
+  font-size: 0.8em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
