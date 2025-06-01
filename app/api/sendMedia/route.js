@@ -1,79 +1,82 @@
-import formidable from 'formidable';
-import fs from 'fs';
-import { Readable } from 'stream';
+// app/api/sendMedia/route.js
+export async function POST(request) {
+  try {
+    // Parse the incoming form data
+    const formData = await request.formData();
+    const file = formData.get('file');
+    const phone = formData.get('phone');
+    const type = formData.get('type');
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+    if (!file || !phone || !type) {
+      return new Response(JSON.stringify({ success: false, error: 'Missing fields' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-export async function POST(req) {
-  return new Promise((resolve, reject) => {
-    const form = formidable({ keepExtensions: true });
+    // Convert the file to a buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    form.parse(req, async (err, fields, files) => {
-      if (err) return resolve(Response.json({ success: false, error: err.message }));
+    // Prepare the form data for WhatsApp API
+    const whatsappFormData = new FormData();
+    whatsappFormData.append('file', new Blob([buffer]), file.name);
+    whatsappFormData.append('messaging_product', 'whatsapp');
+    whatsappFormData.append('type', type);
 
-      const phone = fields.phone?.[0];
-      const type = fields.type?.[0];
-      const file = files.file?.[0];
-
-      if (!phone || !file || !type) {
-        return resolve(Response.json({ success: false, error: 'Missing fields' }));
-      }
-
-      try {
-        // Step 1: Upload media to WhatsApp Cloud API
-        const token = process.env.WHATSAPP_TOKEN;
-        const buffer = fs.readFileSync(file.filepath);
-
-        const formData = new FormData();
-        formData.append('file', new Blob([buffer]), file.originalFilename);
-        formData.append('messaging_product', 'whatsapp');
-        formData.append('type', type);
-
-        const uploadRes = await fetch('https://graph.facebook.com/v19.0/me/media', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-        const uploadJson = await uploadRes.json();
-        if (!uploadJson.id) {
-          return resolve(Response.json({ success: false, error: 'Upload failed', uploadJson }));
-        }
-
-        // Step 2: Send media message
-        const sendRes = await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: phone,
-            type,
-            [type]: {
-              id: uploadJson.id,
-            },
-          }),
-        });
-
-        const sendJson = await sendRes.json();
-
-        if (sendJson.error) {
-          return resolve(Response.json({ success: false, error: sendJson.error.message }));
-        }
-
-        resolve(Response.json({ success: true }));
-      } catch (err) {
-        console.error('SendMedia error:', err);
-        resolve(Response.json({ success: false, error: err.message }));
-      }
+    // Upload media to WhatsApp
+    const uploadResponse = await fetch('https://graph.facebook.com/v19.0/me/media', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      body: whatsappFormData,
     });
-  });
+
+    const uploadResult = await uploadResponse.json();
+
+    if (!uploadResult.id) {
+      return new Response(JSON.stringify({ success: false, error: 'Media upload failed', details: uploadResult }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Send media message
+    const messageResponse = await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: phone,
+        type,
+        [type]: {
+          id: uploadResult.id,
+        },
+      }),
+    });
+
+    const messageResult = await messageResponse.json();
+
+    if (messageResult.error) {
+      return new Response(JSON.stringify({ success: false, error: messageResult.error.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error processing upload:', error);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
